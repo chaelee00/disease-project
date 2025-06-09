@@ -2,16 +2,17 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 
-# 데이터 불러오기
+# -----------------------
+# 데이터 불러오기 함수
+# -----------------------
 @st.cache_data
 def load_data():
     df = pd.read_csv("data.csv")
 
-    # 지역명
     df['지역'] = df['Unnamed: 0']
 
-    # 위도/경도 매핑
-    region_coords = {
+    # 위도, 경도 매핑
+    coords = {
         '서울': (37.5665, 126.9780), '부산': (35.1796, 129.0756), '대구': (35.8714, 128.6014),
         '인천': (37.4563, 126.7052), '광주': (35.1595, 126.8526), '대전': (36.3504, 127.3845),
         '울산': (35.5384, 129.3114), '세종': (36.4801, 127.2890), '경기': (37.4138, 127.5183),
@@ -20,25 +21,29 @@ def load_data():
         '경남': (35.4606, 128.2132), '제주': (33.4996, 126.5312)
     }
 
-    df['위도'] = df['지역'].map(lambda x: region_coords.get(x, (None, None))[0])
-    df['경도'] = df['지역'].map(lambda x: region_coords.get(x, (None, None))[1])
+    df['위도'] = df['지역'].map(lambda x: coords.get(x, (None, None))[0])
+    df['경도'] = df['지역'].map(lambda x: coords.get(x, (None, None))[1])
 
+    # 퍼센트 컬럼 처리 (모두 숫자로 변환)
     df = df[df['지역'] != '전국']
     df = df.dropna(subset=['위도', '경도'])
 
-    return df
+    percent_cols = [col for col in df.columns if '퍼센트' in col]
+    for col in percent_cols:
+        df[col] = df[col].astype(str).str.replace('%', '').str.replace(',', '').astype(float)
 
-# 데이터 로딩
-df = load_data()
+    return df, percent_cols
 
-# 전염병 선택
-disease = st.selectbox("전염병을 선택하세요", ("수두", "간염", "폐렴"))
-col_map = {"수두": "수두 퍼센트", "간염": "간염 퍼센트", "폐렴": "폐렴 퍼센트"}
-selected_col = col_map[disease]
+# -----------------------
+# 앱 본문
+# -----------------------
+df, percent_cols = load_data()
 
-# 제목 출력
-st.title("🦠 지역별 전염병 감염률 지도")
-st.markdown(f"**{disease} 감염률**을 지역별로 시각화한 지도입니다.")
+st.title("🦠 지역별 전염병 감염률 시각화")
+
+selected = st.selectbox("전염병을 선택하세요", percent_cols)
+
+st.markdown(f"**{selected}** 기준 지역별 감염률을 시각화한 지도입니다.")
 
 # 지도 시각화
 st.pydeck_chart(pdk.Deck(
@@ -54,10 +59,10 @@ st.pydeck_chart(pdk.Deck(
             "ScatterplotLayer",
             data=df,
             get_position='[경도, 위도]',
-            get_radius=f"{selected_col} * 20000",
+            get_radius=f"{selected} * 20000",
             get_fill_color='[255, 0, 0, 160]',
             pickable=True,
         )
     ],
-    tooltip={"text": "{지역}\n" + f"{disease} 감염률: {{{selected_col}}}%"}
+    tooltip={"text": "{지역}\n" + f"{selected}: {{{selected}}}%"}
 ))
