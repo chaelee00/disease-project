@@ -1,18 +1,17 @@
-st.write("컬럼 목록:", df.columns.tolist())
 import streamlit as st
 import pandas as pd
 import pydeck as pdk
 
-# ---------------------
+# -----------------------
 # 데이터 불러오기 함수
-# ---------------------
+# -----------------------
 @st.cache_data
 def load_data():
     df = pd.read_csv("data.csv")
 
     df['지역'] = df['Unnamed: 0']
 
-    # 위도, 경도 정보
+    # 위도, 경도 매핑
     coords = {
         '서울': (37.5665, 126.9780), '부산': (35.1796, 129.0756), '대구': (35.8714, 128.6014),
         '인천': (37.4563, 126.7052), '광주': (35.1595, 126.8526), '대전': (36.3504, 127.3845),
@@ -28,50 +27,42 @@ def load_data():
     df = df[df['지역'] != '전국']
     df = df.dropna(subset=['위도', '경도'])
 
-    # 퍼센트 컬럼 정리
+    # 퍼센트 관련 열 찾기 및 전처리
     percent_cols = [col for col in df.columns if '퍼센트' in col]
     for col in percent_cols:
         df[col] = df[col].astype(str).str.replace('%', '').str.replace(',', '').astype(float)
 
     return df, percent_cols
 
-# ---------------------
-# 앱 본문
-# ---------------------
+# -----------------------
+# 앱 구성 시작
+# -----------------------
 st.set_page_config(layout="wide")
 df, percent_cols = load_data()
 
-# 한글 표시용 딕셔너리
-disease_name_map = {
-    "폐렴(퍼센트)": "폐렴",
-    "간염(퍼센트)": "간염",
-    "수두(퍼센트)": "수두"
-}
+st.title("🦠 지역별 전염병 감염률 시각화")
 
-reverse_map = {v: k for k, v in disease_name_map.items()}
+# 전염병 선택 옵션
+selected = st.selectbox("📌 전염병을 선택하세요", percent_cols)
 
-st.title("🦠 지역별 전염병 감염률 지도")
-
-# 사용자가 보는 선택지 (한글)
-selected_kor = st.selectbox("전염병을 선택하세요", list(disease_name_map.values()))
-selected = reverse_map[selected_kor]
-
-# 색상 계산
+# 색상 범위 설정
 min_val = df[selected].min()
 max_val = df[selected].max()
 
+# 색상 설정 함수
 def get_color(value):
     ratio = (value - min_val) / (max_val - min_val + 1e-5)
     r = int(255 * ratio)
     g = int(255 * (1 - ratio))
-    return [r, g, 60, 180]
+    b = 60
+    return [r, g, b, 160]
 
-df['color'] = df[selected].apply(get_color)
-df['radius'] = df[selected] * 20000
+df["color"] = df[selected].apply(get_color)
+df["radius"] = df[selected] * 20000
 
-# ---------------------
-# 좌: 지도 / 우: 표
-# ---------------------
+# -----------------------
+# 화면 구성: 지도 + 표
+# -----------------------
 col1, col2 = st.columns([2, 1])
 
 with col1:
@@ -82,7 +73,7 @@ with col1:
             latitude=36.5,
             longitude=127.8,
             zoom=5.5,
-            pitch=0,
+            pitch=45,
         ),
         layers=[
             pdk.Layer(
@@ -94,14 +85,12 @@ with col1:
                 pickable=True,
             )
         ],
-        tooltip={"text": "{지역}\n" + f"{selected_kor}: {{{selected}}}%"}
+        tooltip={"text": "{지역}\n" + f"{selected}: {{{selected}}}%"}
     ))
 
 with col2:
-    st.subheader("📋 감염률 데이터 (내림차순)")
+    st.subheader("📋 감염률 데이터")
     st.dataframe(
-        df[['지역', selected]]
-        .sort_values(by=selected, ascending=False)
-        .rename(columns={selected: f"{selected_kor} (%)"})
-        .reset_index(drop=True)
+        df[['지역', selected]].sort_values(by=selected, ascending=False).reset_index(drop=True),
+        use_container_width=True
     )
