@@ -24,10 +24,10 @@ def load_data():
     df['위도'] = df['지역'].map(lambda x: coords.get(x, (None, None))[0])
     df['경도'] = df['지역'].map(lambda x: coords.get(x, (None, None))[1])
 
-    # 퍼센트 컬럼 처리 (문자열 → 숫자)
     df = df[df['지역'] != '전국']
     df = df.dropna(subset=['위도', '경도'])
 
+    # 퍼센트 컬럼 찾기 및 전처리
     percent_cols = [col for col in df.columns if '퍼센트' in col]
     for col in percent_cols:
         df[col] = df[col].astype(str).str.replace('%', '').str.replace(',', '').astype(float)
@@ -37,42 +37,48 @@ def load_data():
 # -----------------------
 # 앱 본문
 # -----------------------
-st.set_page_config(layout="wide")
+st.set_page_config(layout="centered")
 df, percent_cols = load_data()
 
 st.title("🦠 지역별 전염병 감염률 시각화")
 
-# 질병 선택
-selected = st.selectbox("전염병을 선택하세요", percent_cols)
+selected = st.selectbox("📌 전염병을 선택하세요", percent_cols)
+
+# 색상 스케일 설정용: 퍼센트 비율 → 색상
+min_val = df[selected].min()
+max_val = df[selected].max()
+
+# 색상 맵핑 함수 (빨강=높음, 초록=낮음)
+def get_color(value):
+    ratio = (value - min_val) / (max_val - min_val + 1e-5)
+    r = int(255 * ratio)
+    g = int(255 * (1 - ratio))
+    b = 50
+    return [r, g, b, 180]
+
+df["color"] = df[selected].apply(get_color)
+df["radius"] = df[selected] * 20000
 
 # -----------------------
-# 화면 구성: 좌(지도) + 우(데이터표)
+# 지도 출력
 # -----------------------
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.subheader("🗺️ 감염률 지도")
-    st.pydeck_chart(pdk.Deck(
-        map_style="mapbox://styles/mapbox/light-v9",
-        initial_view_state=pdk.ViewState(
-            latitude=36.5,
-            longitude=127.8,
-            zoom=5.5,
-            pitch=40,
-        ),
-        layers=[
-            pdk.Layer(
-                "ScatterplotLayer",
-                data=df,
-                get_position='[경도, 위도]',
-                get_radius=f"{selected} * 20000",
-                get_fill_color='[255, 0, 0, 160]',
-                pickable=True,
-            )
-        ],
-        tooltip={"text": "{지역}\n" + f"{selected}: {{{selected}}}%"}
-    ))
-
-with col2:
-    st.subheader("📋 감염률 데이터")
-    st.dataframe(df[['지역', selected]].sort_values(by=selected, ascending=False).reset_index(drop=True))
+st.pydeck_chart(pdk.Deck(
+    map_style="mapbox://styles/mapbox/light-v9",
+    initial_view_state=pdk.ViewState(
+        latitude=36.5,
+        longitude=127.8,
+        zoom=5.5,
+        pitch=0,
+    ),
+    layers=[
+        pdk.Layer(
+            "ScatterplotLayer",
+            data=df,
+            get_position='[경도, 위도]',
+            get_radius="radius",
+            get_fill_color="color",
+            pickable=True,
+        )
+    ],
+    tooltip={"text": "{지역}\n" + f"{selected}: {{{selected}}}%"}
+))
