@@ -1,3 +1,4 @@
+st.write("컬럼 목록:", df.columns.tolist())
 import streamlit as st
 import pandas as pd
 import pydeck as pdk
