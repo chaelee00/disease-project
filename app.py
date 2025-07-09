@@ -2,9 +2,6 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 
-# -----------------------
-# 데이터 불러오기 함수
-# -----------------------
 @st.cache_data
 def load_data():
     df = pd.read_csv("data.csv")
@@ -54,12 +51,12 @@ def get_color(value):
 df["color"] = df[selected].apply(get_color)
 df["radius"] = df[selected] * 20000
 
-# 경기만 별도로 분리
+# 경기만 분리
 gyeonggi_df = df[df["지역"] == "경기"].copy()
 others_df = df[df["지역"] != "경기"]
 
-# 아이콘 데이터 정의 (URL은 자유롭게 바꿀 수 있음)
-icon_url = "https://upload.wikimedia.org/wikipedia/commons/3/34/Red_star.svg"
+# 핀 아이콘
+icon_url = "https://cdn-icons-png.flaticon.com/512/684/684908.png"
 icon_data = {
     "url": icon_url,
     "width": 128,
@@ -85,7 +82,6 @@ with col1:
             pitch=45,
         ),
         layers=[
-            # 경기 제외 나머지는 원형
             pdk.Layer(
                 "ScatterplotLayer",
                 data=others_df,
@@ -94,7 +90,6 @@ with col1:
                 get_fill_color="color",
                 pickable=True,
             ),
-            # 경기만 별 아이콘
             pdk.Layer(
                 "IconLayer",
                 data=gyeonggi_df,
