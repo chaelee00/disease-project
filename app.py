@@ -2,13 +2,15 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 
+# Mapbox 토큰 설정 (👉 아래에 직접 발급받은 토큰을 넣으세요)
+pdk.settings.mapbox_api_key = "YOUR_MAPBOX_ACCESS_TOKEN"
+
 # -----------------------
 # 데이터 불러오기 함수
 # -----------------------
 @st.cache_data
 def load_data():
     df = pd.read_csv("data.csv")
-
     df['지역'] = df['Unnamed: 0']
 
     # 위도, 경도 매핑
@@ -27,7 +29,7 @@ def load_data():
     df = df[df['지역'] != '전국']
     df = df.dropna(subset=['위도', '경도'])
 
-    # 퍼센트 관련 열 찾기 및 전처리
+    # 퍼센트 관련 열 처리
     percent_cols = [col for col in df.columns if '퍼센트' in col]
     for col in percent_cols:
         df[col] = df[col].astype(str).str.replace('%', '').str.replace(',', '').astype(float)
@@ -42,14 +44,13 @@ df, percent_cols = load_data()
 
 st.title("🦠 지역별 전염병 감염률 시각화")
 
-# 전염병 선택 옵션
+# 전염병 선택
 selected = st.selectbox("📌 전염병을 선택하세요", percent_cols)
 
-# 색상 범위 설정
+# 색상 계산 함수
 min_val = df[selected].min()
 max_val = df[selected].max()
 
-# 색상 설정 함수
 def get_color(value):
     ratio = (value - min_val) / (max_val - min_val + 1e-5)
     r = int(255 * ratio)
@@ -61,14 +62,14 @@ df["color"] = df[selected].apply(get_color)
 df["radius"] = df[selected] * 20000
 
 # -----------------------
-# 화면 구성: 지도 + 표
+# 지도 + 데이터표
 # -----------------------
 col1, col2 = st.columns([2, 1])
 
 with col1:
     st.subheader("🗺️ 감염률 지도")
     st.pydeck_chart(pdk.Deck(
-        map_style="mapbox://styles/mapbox/light-v9",
+        map_style="mapbox://styles/mapbox/light-v11",  # 최신 스타일 사용
         initial_view_state=pdk.ViewState(
             latitude=36.5,
             longitude=127.8,
