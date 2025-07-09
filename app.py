@@ -2,9 +2,6 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 
-# Mapbox 토큰 설정 (👉 아래에 직접 발급받은 토큰을 넣으세요)
-pdk.settings.mapbox_api_key = "YOUR_MAPBOX_ACCESS_TOKEN"
-
 # -----------------------
 # 데이터 불러오기 함수
 # -----------------------
@@ -37,7 +34,7 @@ def load_data():
     return df, percent_cols
 
 # -----------------------
-# 앱 구성 시작
+# 앱 시작
 # -----------------------
 st.set_page_config(layout="wide")
 df, percent_cols = load_data()
@@ -47,7 +44,7 @@ st.title("🦠 지역별 전염병 감염률 시각화")
 # 전염병 선택
 selected = st.selectbox("📌 전염병을 선택하세요", percent_cols)
 
-# 색상 계산 함수
+# 색상 및 반지름 설정
 min_val = df[selected].min()
 max_val = df[selected].max()
 
@@ -62,14 +59,15 @@ df["color"] = df[selected].apply(get_color)
 df["radius"] = df[selected] * 20000
 
 # -----------------------
-# 지도 + 데이터표
+# 지도 + 표
 # -----------------------
 col1, col2 = st.columns([2, 1])
 
 with col1:
     st.subheader("🗺️ 감염률 지도")
     st.pydeck_chart(pdk.Deck(
-        map_style="mapbox://styles/mapbox/light-v11",  # 최신 스타일 사용
+        map_provider='carto',  # Mapbox 대신 CARTO 타일 사용
+        map_style=None,        # 토큰 없이도 작동
         initial_view_state=pdk.ViewState(
             latitude=36.5,
             longitude=127.8,
