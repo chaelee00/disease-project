@@ -10,7 +10,6 @@ def load_data():
     df = pd.read_csv("data.csv")
     df['지역'] = df['Unnamed: 0']
 
-    # 위도, 경도 매핑
     coords = {
         '서울': (37.5665, 126.9780), '부산': (35.1796, 129.0756), '대구': (35.8714, 128.6014),
         '인천': (37.4563, 126.7052), '광주': (35.1595, 126.8526), '대전': (36.3504, 127.3845),
@@ -26,7 +25,6 @@ def load_data():
     df = df[df['지역'] != '전국']
     df = df.dropna(subset=['위도', '경도'])
 
-    # 퍼센트 관련 열 처리
     percent_cols = [col for col in df.columns if '퍼센트' in col]
     for col in percent_cols:
         df[col] = df[col].astype(str).str.replace('%', '').str.replace(',', '').astype(float)
@@ -41,10 +39,8 @@ df, percent_cols = load_data()
 
 st.title("🦠 지역별 전염병 감염률 시각화")
 
-# 전염병 선택
 selected = st.selectbox("📌 전염병을 선택하세요", percent_cols)
 
-# 색상 및 반지름 설정
 min_val = df[selected].min()
 max_val = df[selected].max()
 
@@ -58,6 +54,20 @@ def get_color(value):
 df["color"] = df[selected].apply(get_color)
 df["radius"] = df[selected] * 20000
 
+# 경기만 별도로 분리
+gyeonggi_df = df[df["지역"] == "경기"].copy()
+others_df = df[df["지역"] != "경기"]
+
+# 아이콘 데이터 정의 (URL은 자유롭게 바꿀 수 있음)
+icon_url = "https://upload.wikimedia.org/wikipedia/commons/3/34/Red_star.svg"
+icon_data = {
+    "url": icon_url,
+    "width": 128,
+    "height": 128,
+    "anchorY": 128,
+}
+gyeonggi_df["icon_data"] = [icon_data for _ in range(len(gyeonggi_df))]
+
 # -----------------------
 # 지도 + 표
 # -----------------------
@@ -66,8 +76,8 @@ col1, col2 = st.columns([2, 1])
 with col1:
     st.subheader("🗺️ 감염률 지도")
     st.pydeck_chart(pdk.Deck(
-        map_provider='carto',  # Mapbox 대신 CARTO 타일 사용
-        map_style=None,        # 토큰 없이도 작동
+        map_provider='carto',
+        map_style=None,
         initial_view_state=pdk.ViewState(
             latitude=36.5,
             longitude=127.8,
@@ -75,14 +85,25 @@ with col1:
             pitch=45,
         ),
         layers=[
+            # 경기 제외 나머지는 원형
             pdk.Layer(
                 "ScatterplotLayer",
-                data=df,
+                data=others_df,
                 get_position='[경도, 위도]',
                 get_radius="radius",
                 get_fill_color="color",
                 pickable=True,
-            )
+            ),
+            # 경기만 별 아이콘
+            pdk.Layer(
+                "IconLayer",
+                data=gyeonggi_df,
+                get_icon="icon_data",
+                get_size=4,
+                size_scale=15,
+                get_position='[경도, 위도]',
+                pickable=True,
+            ),
         ],
         tooltip={"text": "{지역}\n" + f"{selected}: {{{selected}}}%"}
     ))
