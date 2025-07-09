@@ -9,6 +9,10 @@ import pydeck as pdk
 def load_data():
     df = pd.read_csv("data.csv")
 
+    # 컬럼명 정리 (공백 제거)
+    df.columns = df.columns.str.strip()
+
+    # 지역 이름 정리
     df['지역'] = df['Unnamed: 0']
 
     # 위도, 경도 매핑
@@ -24,10 +28,11 @@ def load_data():
     df['위도'] = df['지역'].map(lambda x: coords.get(x, (None, None))[0])
     df['경도'] = df['지역'].map(lambda x: coords.get(x, (None, None))[1])
 
+    # 전국 제외 및 결측 제거
     df = df[df['지역'] != '전국']
     df = df.dropna(subset=['위도', '경도'])
 
-    # 퍼센트 관련 열 찾기 및 전처리
+    # 퍼센트 열만 추출하여 전처리
     percent_cols = [col for col in df.columns if '퍼센트' in col]
     for col in percent_cols:
         df[col] = df[col].astype(str).str.replace('%', '').str.replace(',', '').astype(float)
@@ -35,21 +40,20 @@ def load_data():
     return df, percent_cols
 
 # -----------------------
-# 앱 구성 시작
+# 앱 구성
 # -----------------------
 st.set_page_config(layout="wide")
 df, percent_cols = load_data()
 
 st.title("🦠 지역별 전염병 감염률 시각화")
 
-# 전염병 선택 옵션
+# 전염병 선택
 selected = st.selectbox("📌 전염병을 선택하세요", percent_cols)
 
-# 색상 범위 설정
+# 색상 계산
 min_val = df[selected].min()
 max_val = df[selected].max()
 
-# 색상 설정 함수
 def get_color(value):
     ratio = (value - min_val) / (max_val - min_val + 1e-5)
     r = int(255 * ratio)
@@ -61,7 +65,7 @@ df["color"] = df[selected].apply(get_color)
 df["radius"] = df[selected] * 20000
 
 # -----------------------
-# 화면 구성: 지도 + 표
+# 화면 구성
 # -----------------------
 col1, col2 = st.columns([2, 1])
 
