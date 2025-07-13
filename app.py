@@ -61,10 +61,17 @@ past_df.columns = past_df.columns.str.strip()
 # 감염률 지도 시각화
 # -----------------------------
 st.title("🦠 지역별 전염병 감염률 시각화")
-selected = st.selectbox("📌 전염병을 선택하세요", percent_cols)
+selected_disease = st.selectbox("📌 전염병을 선택하세요", ["수두", "간염", "폐렴"])
 
-min_val = df[selected].min()
-max_val = df[selected].max()
+col_mapping = {
+    "수두": "수두 퍼센트",
+    "간염": "간염 퍼센트",
+    "폐렴": "폐렴 퍼센트"
+}
+selected_col = col_mapping[selected_disease]
+
+min_val = df[selected_col].min()
+max_val = df[selected_col].max()
 
 def get_color(value):
     ratio = (value - min_val) / (max_val - min_val + 1e-5)
@@ -73,8 +80,8 @@ def get_color(value):
     b = 60
     return [r, g, b, 160]
 
-df["color"] = df[selected].apply(get_color)
-df["radius"] = df[selected] * 20000
+df["color"] = df[selected_col].apply(get_color)
+df["radius"] = df[selected_col] * 20000
 
 # 지도 데이터 분리
 yangju_df = df[df["지역"] == "양주"].copy()
@@ -108,77 +115,52 @@ with col1:
             pdk.Layer("IconLayer", data=yangju_df, get_icon="icon_data",
                       size_scale=15, get_position='[경도, 위도]', pickable=True),
         ],
-        tooltip={"text": "{지역}\n" + selected + ": {" + selected + "}%"}
+        tooltip={"text": "{지역}\n" + selected_col + ": {" + selected_col + "}%"}
     ))
     st.markdown("🟥 감염률 높음 | 🟩 감염률 낮음")
 
 with col2:
     st.subheader("📋 감염률 데이터")
     st.dataframe(
-        df[['지역', selected]].sort_values(by=selected, ascending=False).reset_index(drop=True),
+        df[['지역', selected_col]].sort_values(by=selected_col, ascending=False).reset_index(drop=True),
         use_container_width=True
     )
 
 # -----------------------------
-# 예측: 양주 & 경기 비교 예측
+# 예측 함수 정의
 # -----------------------------
-def predict_region_change(region_name, year_start, year_now, year_future):
-    past_row = past_df[past_df['Unnamed: 0'] == region_name].squeeze()
-    curr_row = df[df['지역'] == region_name].squeeze()
+def predict(region, col, y1, y2, y3):
+    past_val = float(past_df[past_df['Unnamed: 0'] == region][col])
+    curr_val = float(df[df['지역'] == region][col])
+    growth = (curr_val - past_val) / (y2 - y1)
+    pred_val = curr_val + growth * (y3 - y2)
+    return [round(past_val, 3), round(curr_val, 3), round(pred_val, 3)]
 
-    cols = {
-        '수두': '수두 퍼센트',
-        '간염': '간염 퍼센트',
-        '폐렴': '폐렴 퍼센트'
-    }
-
-    results = []
-    for name, col in cols.items():
-        try:
-            past_val = float(past_row[col])
-            curr_val = float(curr_row[col])
-            diff = curr_val - past_val
-            annual_growth = diff / (year_now - year_start)
-            predicted = curr_val + annual_growth * (year_future - year_now)
-            results.append({
-                "질병": name,
-                f"{year_start}년 감염률": round(past_val, 3),
-                f"{year_now}년 감염률": round(curr_val, 3),
-                f"예상 {year_future}년 감염률": round(predicted, 3)
-            })
-        except:
-            continue
-
-    return pd.DataFrame(results)
-
+# -----------------------------
+# 예측 시각화 (질병별 선택)
+# -----------------------------
 st.markdown("---")
-with st.expander("📈 **양주 vs 경기도 감염률 예측 비교 (2015 → 2024 → 2034)**", expanded=True):
-    pred_yangju_df = predict_region_change("양주", 2015, 2024, 2034)
-    pred_gyeonggi_df = predict_region_change("경기", 2015, 2024, 2034)
+with st.expander("📈 감염률 예측: 양주 vs 경기 (선택 질병 기준)", expanded=True):
+    try:
+        yg_vals = predict("양주", selected_col, 2015, 2024, 2034)
+        gg_vals = predict("경기", selected_col, 2015, 2024, 2034)
 
-    col3, col4 = st.columns(2)
-    with col3:
-        st.markdown("#### 📍 양주 예측")
-        st.dataframe(pred_yangju_df, use_container_width=True)
-    with col4:
-        st.markdown("#### 📍 경기도 예측")
-        st.dataframe(pred_gyeonggi_df, use_container_width=True)
+        df_pred = pd.DataFrame({
+            "연도": ["2015", "2024", "2034"],
+            "양주": yg_vals,
+            "경기": gg_vals
+        })
 
-    st.subheader("📊 양주 vs 경기도 감염률 변화 비교 그래프")
-    labels = pred_yangju_df["질병"]
-    x = range(len(labels))
-    width = 0.25
+        st.dataframe(df_pred.set_index("연도"), use_container_width=True)
 
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.bar([i - width for i in x], pred_yangju_df["2024년 감염률"], width=width, label='양주 2024')
-    ax.bar(x, pred_gyeonggi_df["2024년 감염률"], width=width, label='경기 2024')
-    ax.bar([i + width for i in x], pred_yangju_df["예상 2034년 감염률"], width=width, label='양주 2034')
-    ax.bar([i + 2*width for i in x], pred_gyeonggi_df["예상 2034년 감염률"], width=width, label='경기 2034')
+        # 그래프
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.plot(df_pred["연도"], df_pred["양주"], marker='o', label="양주")
+        ax.plot(df_pred["연도"], df_pred["경기"], marker='o', label="경기")
+        ax.set_title(f"{selected_disease} 감염률 변화 예측")
+        ax.set_ylabel("감염률 (%)")
+        ax.legend()
+        st.pyplot(fig)
 
-    ax.set_xticks(list(x))
-    ax.set_xticklabels(labels)
-    ax.set_ylabel("감염률 (%)")
-    ax.set_title("양주 vs 경기도 감염률 예측 비교")
-    ax.legend()
-
-    st.pyplot(fig)
+    except Exception as e:
+        st.error(f"예측 오류: {e}")
