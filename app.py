@@ -198,3 +198,88 @@ if not pred_df.empty:
     ax.legend()
 
     st.pyplot(fig)
+# -----------------------
+# 예측 기능: 양주 기준 감염률 예측 (2015 → 2024 → 2034)
+# -----------------------
+
+# 과거 데이터 불러오기
+past_df = load_past_data()
+
+# 열 이름 정리
+df.columns = df.columns.str.strip()
+past_df.columns = past_df.columns.str.strip()
+
+# 양주 데이터 추출
+past_yangju = past_df[past_df['Unnamed: 0'] == '양주'].squeeze()
+current_yangju = df[df['지역'] == '양주'].squeeze()
+
+# 감염병 컬럼 정의
+disease_percent_cols = {
+    '수두': '수두 퍼센트',
+    '간염': '간염 퍼센트',
+    '폐렴': '폐렴 퍼센트'
+}
+
+# 예측 계산
+rows = []
+for name, col in disease_percent_cols.items():
+    try:
+        past_val = float(past_yangju[col])
+        curr_val = float(current_yangju[col])
+        diff = curr_val - past_val
+        annual_growth = diff / 10
+        predicted = curr_val + annual_growth * 10
+        rows.append({
+            "질병": name,
+            "2015년 감염률": round(past_val, 3),
+            "2024년 감염률": round(curr_val, 3),
+            "10년간 변화량": round(diff, 3),
+            "예상 2034년 감염률": round(predicted, 3)
+        })
+    except Exception as e:
+        rows.append({
+            "질병": name,
+            "오류": str(e)
+        })
+
+pred_df = pd.DataFrame(rows)
+
+# 예측 결과 표 출력
+st.markdown("---")
+with st.expander("📈 **양주 감염률 예측 (2015 → 2024 → 2034)**", expanded=True):
+    st.dataframe(pred_df, use_container_width=True)
+
+    # 시각화
+    if not pred_df.empty and "오류" not in pred_df.columns:
+        st.subheader("📊 감염률 변화 시각화 (양주)")
+
+        import matplotlib.pyplot as plt
+        from matplotlib import font_manager
+        import os
+
+        # 한글 폰트 적용
+        font_path = os.path.join("fonts", "NanumGothic.ttf")
+        font_manager.fontManager.addfont(font_path)
+        plt.rc('font', family='NanumGothic')
+        plt.rcParams['axes.unicode_minus'] = False
+
+        labels = pred_df["질병"]
+        data_2015 = pred_df["2015년 감염률"]
+        data_now = pred_df["2024년 감염률"]
+        data_future = pred_df["예상 2034년 감염률"]
+
+        x = range(len(labels))
+        width = 0.25
+
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.bar([i - width for i in x], data_2015, width=width, label='2015년')
+        ax.bar(x, data_now, width=width, label='2024년')
+        ax.bar([i + width for i in x], data_future, width=width, label='2034년 예측')
+
+        ax.set_xticks(list(x))
+        ax.set_xticklabels(labels)
+        ax.set_ylabel("감염률 (%)")
+        ax.set_title("양주 감염률 변화 예측")
+        ax.legend()
+
+        st.pyplot(fig)
