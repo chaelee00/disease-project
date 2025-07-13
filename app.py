@@ -6,9 +6,6 @@ import seaborn as sns
 from matplotlib import font_manager
 import os
 
-# -----------------------------
-# 기본 설정
-# -----------------------------
 st.set_page_config(layout="wide")
 
 # 한글 폰트 설정
@@ -50,17 +47,12 @@ def load_data():
 def load_past_data():
     return pd.read_csv("past_data.csv", encoding='utf-8')
 
-# -----------------------------
-# 데이터 준비
-# -----------------------------
 df, percent_cols = load_data()
 past_df = load_past_data()
 df.columns = df.columns.str.strip()
 past_df.columns = past_df.columns.str.strip()
 
-# -----------------------------
-# 감염률 지도 시각화
-# -----------------------------
+
 st.title("🦠 지역별 전염병 감염률 시각화")
 selected_disease = st.selectbox("📌 전염병을 선택하세요", ["수두", "간염", "폐렴"])
 
