@@ -1,6 +1,16 @@
 import streamlit as st
 import pandas as pd
 import pydeck as pdk
+import matplotlib.pyplot as plt
+from matplotlib import font_manager
+import os
+
+# 한글 폰트 경로 설정 (fonts 폴더에 있는 경우)
+font_path = os.path.join("fonts", "NanumGothic.ttf")
+font_manager.fontManager.addfont(font_path)
+plt.rc('font', family='NanumGothic')  # 폰트 설정
+plt.rcParams['axes.unicode_minus'] = False  # 마이너스 깨짐 방지
+
 
 @st.cache_data
 def load_data():
@@ -157,26 +167,34 @@ with st.expander("📈 **경기도 감염률 예측 (2015 → 현재 → 10년 �
     pred_df = pd.DataFrame(rows)
     st.dataframe(pred_df, use_container_width=True)
 
-import matplotlib.pyplot as plt
 
 # 예측 그래프 그리기
-st.subheader("📊 감염률 변화 시각화 (경기 지역)")
+font_path = os.path.join("fonts", "NanumGothic.ttf")
+font_manager.fontManager.addfont(font_path)
+plt.rc('font', family='NanumGothic')
+plt.rcParams['axes.unicode_minus'] = False
 
-# 그래프용 데이터 정리
+# 예측 시각화
 if not pred_df.empty:
+    st.subheader("📊 감염률 변화 시각화 (경기 지역)")
+
+    labels = pred_df["질병"]
+    data_2015 = pred_df["2015년 감염률"]
+    data_now = pred_df["현재 감염률"]
+    data_future = pred_df["예상 10년 후 감염률"]
+
+    x = range(len(labels))
+    width = 0.25
+
     fig, ax = plt.subplots(figsize=(8, 5))
-    width = 0.2
-    x = range(len(pred_df))
+    ax.bar([i - width for i in x], data_2015, width=width, label='2015년')
+    ax.bar(x, data_now, width=width, label='현재')
+    ax.bar([i + width for i in x], data_future, width=width, label='10년 후 예측')
 
-    ax.bar([i - width for i in x], pred_df['2015년 감염률'], width=width, label='2015년')
-    ax.bar(x, pred_df['현재 감염률'], width=width, label='현재')
-    ax.bar([i + width for i in x], pred_df['예상 10년 후 감염률'], width=width, label='10년 후 예측')
-
-    ax.set_xticks(x)
-    ax.set_xticklabels(pred_df['질병'])
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(labels)
     ax.set_ylabel("감염률 (%)")
     ax.set_title("경기도 감염률 변화 예측")
     ax.legend()
+
     st.pyplot(fig)
-else:
-    st.info("예측할 데이터가 없습니다.")
