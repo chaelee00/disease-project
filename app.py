@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 import matplotlib.pyplot as plt
+import seaborn as sns
 from matplotlib import font_manager
 import os
 
@@ -105,13 +106,13 @@ with col1:
     st.pydeck_chart(pdk.Deck(
         map_provider='carto',
         map_style=None,
-        initial_view_state=pdk.ViewState(latitude=37.6, longitude=127.1, zoom=7, pitch=45),
+        initial_view_state=pdk.ViewState(latitude=37.5, longitude=127.1, zoom=8, pitch=45),
         layers=[
             pdk.Layer("ScatterplotLayer", data=others_df, get_position='[경도, 위도]',
                       get_radius="radius", get_fill_color="color", pickable=True),
-            pdk.Layer("ScatterplotLayer", data=pd.DataFrame([{"경도": 127.5183, "위도": 37.4138}]),
-                      get_position='[경도, 위도]', get_radius=30000,
-                      get_fill_color=[0, 100, 255, 40], pickable=False),
+            pdk.Layer("ScatterplotLayer", data=gyeonggi_df,
+                      get_position='[경도, 위도]', get_radius="radius",
+                      get_fill_color="color", pickable=True),
             pdk.Layer("IconLayer", data=yangju_df, get_icon="icon_data",
                       size_scale=15, get_position='[경도, 위도]', pickable=True),
         ],
@@ -140,7 +141,7 @@ def predict(region, col, y1, y2, y3):
 # 예측 시각화 (질병별 선택)
 # -----------------------------
 st.markdown("---")
-with st.expander("📈 감염률 예측: 양주 vs 경기 (선택 질병 기준)", expanded=True):
+with st.expander("📈 감염률 예측 비교 (양주 vs 경기)", expanded=True):
     try:
         yg_vals = predict("양주", selected_col, 2015, 2024, 2034)
         gg_vals = predict("경기", selected_col, 2015, 2024, 2034)
@@ -153,12 +154,16 @@ with st.expander("📈 감염률 예측: 양주 vs 경기 (선택 질병 기준)
 
         st.dataframe(df_pred.set_index("연도"), use_container_width=True)
 
-        # 그래프
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.plot(df_pred["연도"], df_pred["양주"], marker='o', label="양주")
-        ax.plot(df_pred["연도"], df_pred["경기"], marker='o', label="경기")
-        ax.set_title(f"{selected_disease} 감염률 변화 예측")
+        # 바그래프
+        fig, ax = plt.subplots(figsize=(8, 5))
+        width = 0.35
+        x = range(len(df_pred))
+        ax.bar([i - width/2 for i in x], df_pred["양주"], width=width, label="양주")
+        ax.bar([i + width/2 for i in x], df_pred["경기"], width=width, label="경기")
+        ax.set_xticks(list(x))
+        ax.set_xticklabels(df_pred["연도"])
         ax.set_ylabel("감염률 (%)")
+        ax.set_title(f"{selected_disease} 감염률 변화 예측 (양주 vs 경기)")
         ax.legend()
         st.pyplot(fig)
 
