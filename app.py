@@ -156,7 +156,8 @@ with st.expander("📈 **경기도 감염률 예측 (2015 → 현재 → 10년 �
 
     pred_df = pd.DataFrame(rows)
     st.dataframe(pred_df, use_container_width=True)
-    import matplotlib.pyplot as plt
+
+import matplotlib.pyplot as plt
 
 # 예측 그래프 그리기
 st.subheader("📊 감염률 변화 시각화 (경기 지역)")
