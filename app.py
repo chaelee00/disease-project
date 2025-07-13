@@ -78,7 +78,8 @@ df["radius"] = df[selected] * 20000
 
 # 지도 데이터 분리
 yangju_df = df[df["지역"] == "양주"].copy()
-others_df = df[df["지역"] != "양주"]
+gyeonggi_df = df[df["지역"] == "경기"].copy()
+others_df = df[(df["지역"] != "양주") & (df["지역"] != "경기")]
 
 # 아이콘 설정
 yangju_icon = {
@@ -119,61 +120,65 @@ with col2:
     )
 
 # -----------------------------
-# 예측: 양주 기준 감염률 (2015 → 2024 → 2034)
+# 예측: 양주 & 경기 비교 예측
 # -----------------------------
-past_yangju = past_df[past_df['Unnamed: 0'] == '양주'].squeeze()
-current_yangju = df[df['지역'] == '양주'].squeeze()
+def predict_region_change(region_name, year_start, year_now, year_future):
+    past_row = past_df[past_df['Unnamed: 0'] == region_name].squeeze()
+    curr_row = df[df['지역'] == region_name].squeeze()
 
-cols = {
-    '수두': '수두 퍼센트',
-    '간염': '간염 퍼센트',
-    '폐렴': '폐렴 퍼센트'
-}
+    cols = {
+        '수두': '수두 퍼센트',
+        '간염': '간염 퍼센트',
+        '폐렴': '폐렴 퍼센트'
+    }
 
-yangju_rows = []
-for name, col in cols.items():
-    try:
-        past_val = float(past_yangju[col])
-        curr_val = float(current_yangju[col])
-        diff = curr_val - past_val
-        annual_growth = diff / 10
-        predicted = curr_val + annual_growth * 10
-        yangju_rows.append({
-            "질병": name,
-            "2015년 감염률": round(past_val, 3),
-            "2024년 감염률": round(curr_val, 3),
-            "10년간 변화량": round(diff, 3),
-            "예상 2034년 감염률": round(predicted, 3)
-        })
-    except Exception as e:
-        yangju_rows.append({"질병": name, "오류": str(e)})
+    results = []
+    for name, col in cols.items():
+        try:
+            past_val = float(past_row[col])
+            curr_val = float(curr_row[col])
+            diff = curr_val - past_val
+            annual_growth = diff / (year_now - year_start)
+            predicted = curr_val + annual_growth * (year_future - year_now)
+            results.append({
+                "질병": name,
+                f"{year_start}년 감염률": round(past_val, 3),
+                f"{year_now}년 감염률": round(curr_val, 3),
+                f"예상 {year_future}년 감염률": round(predicted, 3)
+            })
+        except:
+            continue
 
-pred_yangju_df = pd.DataFrame(yangju_rows)
+    return pd.DataFrame(results)
 
 st.markdown("---")
-with st.expander("📈 **양주 감염률 예측 (2015 → 2024 → 2034)**", expanded=True):
-    st.dataframe(pred_yangju_df, use_container_width=True)
+with st.expander("📈 **양주 vs 경기도 감염률 예측 비교 (2014 → 2024 → 2034)**", expanded=True):
+    pred_yangju_df = predict_region_change("양주", 2014, 2024, 2034)
+    pred_gyeonggi_df = predict_region_change("경기", 2014, 2024, 2034)
 
-    if not pred_yangju_df.empty and "오류" not in pred_yangju_df.columns:
-        st.subheader("📊 감염률 변화 시각화 (양주)")
+    col3, col4 = st.columns(2)
+    with col3:
+        st.markdown("#### 📍 양주 예측")
+        st.dataframe(pred_yangju_df, use_container_width=True)
+    with col4:
+        st.markdown("#### 📍 경기도 예측")
+        st.dataframe(pred_gyeonggi_df, use_container_width=True)
 
-        labels = pred_yangju_df["질병"]
-        data_2015 = pred_yangju_df["2015년 감염률"]
-        data_now = pred_yangju_df["2024년 감염률"]
-        data_future = pred_yangju_df["예상 2034년 감염률"]
+    st.subheader("📊 양주 vs 경기도 감염률 변화 비교 그래프")
+    labels = pred_yangju_df["질병"]
+    x = range(len(labels))
+    width = 0.25
 
-        x = range(len(labels))
-        width = 0.25
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.bar([i - width for i in x], pred_yangju_df["2024년 감염률"], width=width, label='양주 2024')
+    ax.bar(x, pred_gyeonggi_df["2024년 감염률"], width=width, label='경기 2024')
+    ax.bar([i + width for i in x], pred_yangju_df["10년 후 예상 감염률"], width=width, label='양주 +10')
+    ax.bar([i + 2*width for i in x], pred_gyeonggi_df["10년 후 예상 감염률"], width=width, label='경기 +10')
 
-        fig, ax = plt.subplots(figsize=(8, 5))
-        ax.bar([i - width for i in x], data_2015, width=width, label='2015년')
-        ax.bar(x, data_now, width=width, label='2024년')
-        ax.bar([i + width for i in x], data_future, width=width, label='2034년 예측')
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(labels)
+    ax.set_ylabel("감염률 (%)")
+    ax.set_title("양주 vs 경기도 감염률 예측 비교")
+    ax.legend()
 
-        ax.set_xticks(list(x))
-        ax.set_xticklabels(labels)
-        ax.set_ylabel("감염률 (%)")
-        ax.set_title("양주 감염률 변화 예측")
-        ax.legend()
-
-        st.pyplot(fig)
+    st.pyplot(fig)
