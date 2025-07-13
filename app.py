@@ -152,9 +152,9 @@ def predict_region_change(region_name, year_start, year_now, year_future):
     return pd.DataFrame(results)
 
 st.markdown("---")
-with st.expander("📈 **양주 vs 경기도 감염률 예측 비교 (2014 → 2024 → 2034)**", expanded=True):
-    pred_yangju_df = predict_region_change("양주", 2014, 2024, 2034)
-    pred_gyeonggi_df = predict_region_change("경기", 2014, 2024, 2034)
+with st.expander("📈 **양주 vs 경기도 감염률 예측 비교 (2015 → 2024 → 2034)**", expanded=True):
+    pred_yangju_df = predict_region_change("양주", 2015, 2024, 2034)
+    pred_gyeonggi_df = predict_region_change("경기", 2015, 2024, 2034)
 
     col3, col4 = st.columns(2)
     with col3:
@@ -172,8 +172,8 @@ with st.expander("📈 **양주 vs 경기도 감염률 예측 비교 (2014 → 2
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.bar([i - width for i in x], pred_yangju_df["2024년 감염률"], width=width, label='양주 2024')
     ax.bar(x, pred_gyeonggi_df["2024년 감염률"], width=width, label='경기 2024')
-    ax.bar([i + width for i in x], pred_yangju_df["10년 후 예상 감염률"], width=width, label='양주 +10')
-    ax.bar([i + 2*width for i in x], pred_gyeonggi_df["10년 후 예상 감염률"], width=width, label='경기 +10')
+    ax.bar([i + width for i in x], pred_yangju_df["예상 2034년 감염률"], width=width, label='양주 2034')
+    ax.bar([i + 2*width for i in x], pred_gyeonggi_df["예상 2034년 감염률"], width=width, label='경기 2034')
 
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels)
