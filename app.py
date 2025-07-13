@@ -121,7 +121,7 @@ import pandas as pd
 # 과거 데이터 불러오기
 @st.cache_data
 def load_past_data():
-    return pd.read_csv("past_data", encoding='utf-8')  # 확장자 없는 파일 불러오기
+    return pd.read_csv("past_data.csv", encoding='utf-8')  # 확장자 없는 파일 불러오기
 
 past_df = load_past_data()
 
