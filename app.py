@@ -5,13 +5,20 @@ import matplotlib.pyplot as plt
 from matplotlib import font_manager
 import os
 
-# 한글 폰트 경로 설정 (fonts 폴더에 있는 경우)
+# -----------------------------
+# 기본 설정
+# -----------------------------
+st.set_page_config(layout="wide")
+
+# 한글 폰트 설정
 font_path = os.path.join("fonts", "NanumGothic.ttf")
 font_manager.fontManager.addfont(font_path)
-plt.rc('font', family='NanumGothic')  # 폰트 설정
-plt.rcParams['axes.unicode_minus'] = False  # 마이너스 깨짐 방지
+plt.rc('font', family='NanumGothic')
+plt.rcParams['axes.unicode_minus'] = False
 
-
+# -----------------------------
+# 데이터 로딩 함수
+# -----------------------------
 @st.cache_data
 def load_data():
     df = pd.read_csv("data.csv")
@@ -23,7 +30,7 @@ def load_data():
         '울산': (35.5384, 129.3114), '세종': (36.4801, 127.2890), '경기': (37.4138, 127.5183),
         '강원': (37.8228, 128.1555), '충북': (36.6358, 127.4917), '충남': (36.5184, 126.8000),
         '전북': (35.7167, 127.1442), '전남': (34.8161, 126.4630), '경북': (36.4919, 128.8889),
-        '경남': (35.4606, 128.2132), '제주': (33.4996, 126.5312)
+        '경남': (35.4606, 128.2132), '제주': (33.4996, 126.5312), '양주': (37.7853, 127.0459)
     }
 
     df['위도'] = df['지역'].map(lambda x: coords.get(x, (None, None))[0])
@@ -38,14 +45,22 @@ def load_data():
 
     return df, percent_cols
 
-# -----------------------
-# 앱 시작
-# -----------------------
-st.set_page_config(layout="wide")
+@st.cache_data
+def load_past_data():
+    return pd.read_csv("past_data.csv", encoding='utf-8')
+
+# -----------------------------
+# 데이터 준비
+# -----------------------------
 df, percent_cols = load_data()
+past_df = load_past_data()
+df.columns = df.columns.str.strip()
+past_df.columns = past_df.columns.str.strip()
 
+# -----------------------------
+# 감염률 지도 시각화
+# -----------------------------
 st.title("🦠 지역별 전염병 감염률 시각화")
-
 selected = st.selectbox("📌 전염병을 선택하세요", percent_cols)
 
 min_val = df[selected].min()
@@ -61,23 +76,20 @@ def get_color(value):
 df["color"] = df[selected].apply(get_color)
 df["radius"] = df[selected] * 20000
 
-# 경기만 분리
-gyeonggi_df = df[df["지역"] == "경기"].copy()
-others_df = df[df["지역"] != "경기"]
+# 지도 데이터 분리
+yangju_df = df[df["지역"] == "양주"].copy()
+others_df = df[df["지역"] != "양주"]
 
-# 핀 아이콘
-icon_url = "https://cdn-icons-png.flaticon.com/512/684/684908.png"
-icon_data = {
-    "url": icon_url,
+# 아이콘 설정
+yangju_icon = {
+    "url": "https://cdn-icons-png.flaticon.com/512/684/684908.png",
     "width": 128,
     "height": 128,
     "anchorY": 128,
 }
-gyeonggi_df["icon_data"] = [icon_data for _ in range(len(gyeonggi_df))]
+yangju_df["icon_data"] = [yangju_icon for _ in range(len(yangju_df))]
 
-# -----------------------
-# 지도 + 표
-# -----------------------
+# 지도 + 표 표시
 col1, col2 = st.columns([2, 1])
 
 with col1:
@@ -85,34 +97,15 @@ with col1:
     st.pydeck_chart(pdk.Deck(
         map_provider='carto',
         map_style=None,
-        initial_view_state=pdk.ViewState(
-            latitude=37.4138,  # 경기 중심
-            longitude=127.5183,
-            zoom=6.5,
-            pitch=45,
-        ),
+        initial_view_state=pdk.ViewState(latitude=37.6, longitude=127.1, zoom=7, pitch=45),
         layers=[
-            pdk.Layer(
-                "ScatterplotLayer",
-                data=others_df,
-                get_position='[경도, 위도]',
-                get_radius="radius",
-                get_fill_color="color",
-                pickable=True,
-            ),
-            pdk.Layer(
-                "IconLayer",
-                data=gyeonggi_df,
-                get_icon="icon_data",
-                size_scale=15,  # get_size 제거
-                get_position='[경도, 위도]',
-                pickable=True,
-            ),
+            pdk.Layer("ScatterplotLayer", data=others_df, get_position='[경도, 위도]',
+                      get_radius="radius", get_fill_color="color", pickable=True),
+            pdk.Layer("IconLayer", data=yangju_df, get_icon="icon_data",
+                      size_scale=15, get_position='[경도, 위도]', pickable=True),
         ],
         tooltip={"text": "{지역}\n" + selected + ": {" + selected + "}%"}
     ))
-
-    # 색상 범례
     st.markdown("🟥 감염률 높음 | 🟩 감염률 낮음")
 
 with col2:
@@ -122,114 +115,27 @@ with col2:
         use_container_width=True
     )
 
-# -----------------------
-# 예측 기능: 경기도 기준 감염률 예측
-# -----------------------
-
-import pandas as pd
-
-# 과거 데이터 불러오기
-@st.cache_data
-def load_past_data():
-    return pd.read_csv("past_data.csv", encoding='utf-8')  # 확장자 없는 파일 불러오기
-
-past_df = load_past_data()
-
-st.markdown("---")
-with st.expander("📈 **경기도 감염률 예측 (2015 → 현재 → 10년 후)**", expanded=False):
-    past_gyeonggi = past_df[past_df['Unnamed: 0'] == '경기'].squeeze()
-    current_gyeonggi = df[df['지역'] == '경기'].squeeze()
-
-    disease_percent_cols = {
-        '수두': '수두 퍼센트',
-        '간염': '간염 퍼센트',
-        '폐렴': '폐렴 퍼센트'
-    }
-
-    rows = []
-    for name, col in disease_percent_cols.items():
-        try:
-            past_val = float(past_gyeonggi[col])
-            curr_val = float(str(current_gyeonggi[col]).replace('%', '').replace(',', ''))
-            diff = curr_val - past_val
-            annual_growth = diff / 10
-            predicted = curr_val + annual_growth * 10
-            rows.append({
-                "질병": name,
-                "2015년 감염률": round(past_val, 3),
-                "현재 감염률": round(curr_val, 3),
-                "10년간 변화량": round(diff, 3),
-                "예상 10년 후 감염률": round(predicted, 3)
-            })
-        except:
-            continue
-
-    pred_df = pd.DataFrame(rows)
-    st.dataframe(pred_df, use_container_width=True)
-
-
-# 예측 그래프 그리기
-font_path = os.path.join("fonts", "NanumGothic.ttf")
-font_manager.fontManager.addfont(font_path)
-plt.rc('font', family='NanumGothic')
-plt.rcParams['axes.unicode_minus'] = False
-
-# 예측 시각화
-if not pred_df.empty:
-    st.subheader("📊 감염률 변화 시각화 (경기 지역)")
-
-    labels = pred_df["질병"]
-    data_2015 = pred_df["2015년 감염률"]
-    data_now = pred_df["현재 감염률"]
-    data_future = pred_df["예상 10년 후 감염률"]
-
-    x = range(len(labels))
-    width = 0.25
-
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.bar([i - width for i in x], data_2015, width=width, label='2015년')
-    ax.bar(x, data_now, width=width, label='현재')
-    ax.bar([i + width for i in x], data_future, width=width, label='10년 후 예측')
-
-    ax.set_xticks(list(x))
-    ax.set_xticklabels(labels)
-    ax.set_ylabel("감염률 (%)")
-    ax.set_title("경기도 감염률 변화 예측")
-    ax.legend()
-
-    st.pyplot(fig)
-# -----------------------
-# 예측 기능: 양주 기준 감염률 예측 (2015 → 2024 → 2034)
-# -----------------------
-
-# 과거 데이터 불러오기
-past_df = load_past_data()
-
-# 열 이름 정리
-df.columns = df.columns.str.strip()
-past_df.columns = past_df.columns.str.strip()
-
-# 양주 데이터 추출
+# -----------------------------
+# 예측: 양주 기준 감염률 (2015 → 2024 → 2034)
+# -----------------------------
 past_yangju = past_df[past_df['Unnamed: 0'] == '양주'].squeeze()
 current_yangju = df[df['지역'] == '양주'].squeeze()
 
-# 감염병 컬럼 정의
-disease_percent_cols = {
+cols = {
     '수두': '수두 퍼센트',
     '간염': '간염 퍼센트',
     '폐렴': '폐렴 퍼센트'
 }
 
-# 예측 계산
-rows = []
-for name, col in disease_percent_cols.items():
+yangju_rows = []
+for name, col in cols.items():
     try:
         past_val = float(past_yangju[col])
         curr_val = float(current_yangju[col])
         diff = curr_val - past_val
         annual_growth = diff / 10
         predicted = curr_val + annual_growth * 10
-        rows.append({
+        yangju_rows.append({
             "질병": name,
             "2015년 감염률": round(past_val, 3),
             "2024년 감염률": round(curr_val, 3),
@@ -237,36 +143,21 @@ for name, col in disease_percent_cols.items():
             "예상 2034년 감염률": round(predicted, 3)
         })
     except Exception as e:
-        rows.append({
-            "질병": name,
-            "오류": str(e)
-        })
+        yangju_rows.append({"질병": name, "오류": str(e)})
 
-pred_df = pd.DataFrame(rows)
+pred_yangju_df = pd.DataFrame(yangju_rows)
 
-# 예측 결과 표 출력
 st.markdown("---")
 with st.expander("📈 **양주 감염률 예측 (2015 → 2024 → 2034)**", expanded=True):
-    st.dataframe(pred_df, use_container_width=True)
+    st.dataframe(pred_yangju_df, use_container_width=True)
 
-    # 시각화
-    if not pred_df.empty and "오류" not in pred_df.columns:
+    if not pred_yangju_df.empty and "오류" not in pred_yangju_df.columns:
         st.subheader("📊 감염률 변화 시각화 (양주)")
 
-        import matplotlib.pyplot as plt
-        from matplotlib import font_manager
-        import os
-
-        # 한글 폰트 적용
-        font_path = os.path.join("fonts", "NanumGothic.ttf")
-        font_manager.fontManager.addfont(font_path)
-        plt.rc('font', family='NanumGothic')
-        plt.rcParams['axes.unicode_minus'] = False
-
-        labels = pred_df["질병"]
-        data_2015 = pred_df["2015년 감염률"]
-        data_now = pred_df["2024년 감염률"]
-        data_future = pred_df["예상 2034년 감염률"]
+        labels = pred_yangju_df["질병"]
+        data_2015 = pred_yangju_df["2015년 감염률"]
+        data_now = pred_yangju_df["2024년 감염률"]
+        data_future = pred_yangju_df["예상 2034년 감염률"]
 
         x = range(len(labels))
         width = 0.25
