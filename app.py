@@ -101,6 +101,9 @@ with col1:
         layers=[
             pdk.Layer("ScatterplotLayer", data=others_df, get_position='[경도, 위도]',
                       get_radius="radius", get_fill_color="color", pickable=True),
+            pdk.Layer("ScatterplotLayer", data=pd.DataFrame([{"경도": 127.5183, "위도": 37.4138}]),
+                      get_position='[경도, 위도]', get_radius=30000,
+                      get_fill_color=[0, 100, 255, 40], pickable=False),
             pdk.Layer("IconLayer", data=yangju_df, get_icon="icon_data",
                       size_scale=15, get_position='[경도, 위도]', pickable=True),
         ],
