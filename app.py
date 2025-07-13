@@ -111,3 +111,48 @@ with col2:
         df[['지역', selected]].sort_values(by=selected, ascending=False).reset_index(drop=True),
         use_container_width=True
     )
+
+# -----------------------
+# 예측 기능: 경기도 기준 감염률 예측
+# -----------------------
+
+import pandas as pd
+
+# 과거 데이터 불러오기
+@st.cache_data
+def load_past_data():
+    return pd.read_csv("past_data", encoding='utf-8')  # 확장자 없는 파일 불러오기
+
+past_df = load_past_data()
+
+st.markdown("---")
+with st.expander("📈 **경기도 감염률 예측 (2015 → 현재 → 10년 후)**", expanded=False):
+    past_gyeonggi = past_df[past_df['Unnamed: 0'] == '경기'].squeeze()
+    current_gyeonggi = df[df['지역'] == '경기'].squeeze()
+
+    disease_percent_cols = {
+        '수두': '수두 퍼센트',
+        '간염': '간염 퍼센트',
+        '폐렴': '폐렴 퍼센트'
+    }
+
+    rows = []
+    for name, col in disease_percent_cols.items():
+        try:
+            past_val = float(past_gyeonggi[col])
+            curr_val = float(str(current_gyeonggi[col]).replace('%', '').replace(',', ''))
+            diff = curr_val - past_val
+            annual_growth = diff / 10
+            predicted = curr_val + annual_growth * 10
+            rows.append({
+                "질병": name,
+                "2015년 감염률": round(past_val, 3),
+                "현재 감염률": round(curr_val, 3),
+                "10년간 변화량": round(diff, 3),
+                "예상 10년 후 감염률": round(predicted, 3)
+            })
+        except:
+            continue
+
+    pred_df = pd.DataFrame(rows)
+    st.dataframe(pred_df, use_container_width=True)
