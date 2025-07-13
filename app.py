@@ -76,9 +76,9 @@ with col1:
         map_provider='carto',
         map_style=None,
         initial_view_state=pdk.ViewState(
-            latitude=36.5,
-            longitude=127.8,
-            zoom=5.5,
+            latitude=37.4138,  # 경기 중심
+            longitude=127.5183,
+            zoom=6.5,
             pitch=45,
         ),
         layers=[
@@ -94,17 +94,20 @@ with col1:
                 "IconLayer",
                 data=gyeonggi_df,
                 get_icon="icon_data",
-                get_size=4,
-                size_scale=15,
+                size_scale=15,  # get_size 제거
                 get_position='[경도, 위도]',
                 pickable=True,
             ),
         ],
-        tooltip={"text": "{지역}\n" + f"{selected}: {{{selected}}}%"}
+        tooltip={"text": "{지역}\n" + selected + ": {" + selected + "}%"}
     ))
+
+    # 색상 범례
+    st.markdown("🟥 감염률 높음 | 🟩 감염률 낮음")
 
 with col2:
     st.subheader("📋 감염률 데이터")
     st.dataframe(
         df[['지역', selected]].sort_values(by=selected, ascending=False).reset_index(drop=True),
-        use_container_width=True)
+        use_container_width=True
+    )
