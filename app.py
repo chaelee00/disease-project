@@ -180,4 +180,3 @@ if not pred_df.empty:
     st.pyplot(fig)
 else:
     st.info("예측할 데이터가 없습니다.")
-
